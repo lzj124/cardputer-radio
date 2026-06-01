@@ -144,7 +144,7 @@ public:
     }
 
     // ── Check if a station URL is already favorited ─────────
-    bool isFavorited(const char* url) {
+    bool isFavorited(const char* url) const {
         for (int i = 0; i < count; i++) {
             if (strcmp(favorites[i].url, url) == 0) return true;
         }

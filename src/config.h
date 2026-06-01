@@ -26,7 +26,10 @@ static constexpr int I2S_LRC  = 42;
 static constexpr int I2S_DOUT = 43;
 
 // ── SD Card ─────────────────────────────────────────────────
-static constexpr int SD_SPI_CS    = 4;  // Cardputer SD CS
+static constexpr int SD_SPI_SCK  = 40;
+static constexpr int SD_SPI_MISO = 39;
+static constexpr int SD_SPI_MOSI = 14;
+static constexpr int SD_SPI_CS   = 4;   // Cardputer SD CS
 static constexpr const char* FAVORITES_FILE = "/fav.json";
 static constexpr const char* WIFI_CFG_FILE   = "/wifi.cfg";
 

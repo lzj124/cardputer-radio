@@ -1,4 +1,4 @@
-// Cardputer Radio — Internet Radio Streamer for M5Stack Cardputer
+// Cardputer Radio - Internet Radio Streamer for M5Stack Cardputer
 // Entry point + state machine
 
 #include <Arduino.h>
@@ -47,12 +47,12 @@ void connectWiFi() {
         return;
     }
 
-    disp.dsp.fillScreen(TFT_BLACK);
-    disp.dsp.setTextSize(1);
-    disp.dsp.setTextColor(TFT_WHITE);
-    disp.dsp.drawString("Connecting WiFi...", 4, 20);
-    disp.dsp.setTextColor(0x8410);
-    disp.dsp.drawString(wifiCfg.ssid, 4, 34);
+    disp.dsp->fillScreen(TFT_BLACK);
+    disp.dsp->setTextSize(1);
+    disp.dsp->setTextColor(TFT_WHITE);
+    disp.dsp->drawString("Connecting WiFi...", 4, 20);
+    disp.dsp->setTextColor(0x8410);
+    disp.dsp->drawString(wifiCfg.ssid, 4, 34);
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(wifiCfg.ssid, wifiCfg.pass);
@@ -65,23 +65,23 @@ void connectWiFi() {
         int n = (attempt % 4);
         for (int i = 0; i < n; i++) dots[i] = '.';
         dots[n] = '\0';
-        disp.dsp.fillRect(4, 48, 100, 10, TFT_BLACK);
-        disp.dsp.setTextColor(TFT_CYAN);
-        disp.dsp.drawString(dots, 4, 48);
+        disp.dsp->fillRect(4, 48, 200, 10, TFT_BLACK);
+        disp.dsp->setTextColor(TFT_CYAN);
+        disp.dsp->drawString(dots, 4, 48);
 
         if (attempt % 10 == 0) {
-            disp.dsp.fillRect(4, 60, disp.w, 10, TFT_BLACK);
-            disp.dsp.setTextColor(TFT_RED);
-            disp.dsp.drawString("Retrying...", 4, 60);
+            disp.dsp->fillRect(4, 60, disp.w, 10, TFT_BLACK);
+            disp.dsp->setTextColor(TFT_RED);
+            disp.dsp->drawString("Retrying...", 4, 60);
         }
     }
 
     wifiConnected = true;
-    disp.dsp.fillScreen(TFT_BLACK);
-    disp.dsp.setTextColor(TFT_GREEN);
-    disp.dsp.drawString("Connected!", 4, 40);
-    disp.dsp.setTextColor(TFT_WHITE);
-    disp.dsp.drawString(WiFi.localIP().toString().c_str(), 4, 54);
+    disp.dsp->fillScreen(TFT_BLACK);
+    disp.dsp->setTextColor(TFT_GREEN);
+    disp.dsp->drawString("Connected!", 4, 40);
+    disp.dsp->setTextColor(TFT_WHITE);
+    disp.dsp->drawString(WiFi.localIP().toString().c_str(), 4, 54);
     delay(800);
     Serial.printf("[WiFi] Connected: %s\n", WiFi.localIP().toString().c_str());
 }
@@ -94,28 +94,27 @@ void setup() {
     Serial.flush();
     delay(100);
 
-    // Init M5Cardputer (display, keyboard, speaker)
     auto cfg = M5.config();
     M5Cardputer.begin(cfg);
 
     disp.begin();
-    disp.dsp.setTextSize(1);
-    disp.dsp.setTextColor(TFT_WHITE);
-    disp.dsp.drawString("Cardputer Radio", 2, 2);
-    disp.dsp.setTextColor(0x8410);
-    disp.dsp.drawString("Starting...", 2, 16);
+    disp.dsp->setTextSize(1);
+    disp.dsp->setTextColor(TFT_WHITE);
+    disp.dsp->drawString("Cardputer Radio", 2, 2);
+    disp.dsp->setTextColor(0x8410);
+    disp.dsp->drawString("Starting...", 2, 16);
 
     // Init SD
     SPI.begin(SD_SPI_SCK, SD_SPI_MISO, SD_SPI_MOSI, SD_SPI_CS);
     if (SD.begin(SD_SPI_CS, SPI, 25000000)) {
         sdAvailable = true;
         Serial.println("[SD] OK");
-        disp.dsp.setTextColor(TFT_GREEN);
-        disp.dsp.drawString("SD: OK", 2, 30);
+        disp.dsp->setTextColor(TFT_GREEN);
+        disp.dsp->drawString("SD: OK", 2, 30);
     } else {
         Serial.println("[SD] Not found");
-        disp.dsp.setTextColor(TFT_RED);
-        disp.dsp.drawString("SD: N/A", 2, 30);
+        disp.dsp->setTextColor(TFT_RED);
+        disp.dsp->drawString("SD: N/A", 2, 30);
     }
 
     // Load config & favorites
@@ -134,7 +133,6 @@ void setup() {
     // Connect WiFi
     connectWiFi();
 
-    // Enter menu
     enterState(State::MENU);
 }
 
@@ -145,7 +143,6 @@ void enterState(State s) {
     stateChanged = true;
     stateEnterMs = millis();
     disp.activity();
-
     Serial.printf("[State] %d -> %d\n", (int)prevState, (int)state);
 }
 
@@ -162,19 +159,18 @@ void handleMenu() {
     if (stateChanged) {
         disp.drawMenu(menuSelected);
         stateChanged = false;
-        lastHid = ks.hid_keys.size();  // reset on entry
+        lastHid = ks.hid_keys.size();
         lastKs = ks;
     }
 
-    // Navigation
     bool moved = false;
     if (ks.fn) {
         for (size_t i = lastHid; i < ks.hid_keys.size(); i++) {
             uint8_t hk = ks.hid_keys[i];
-            if (hk == 0x33) {  // up
+            if (hk == 0x33) {
                 menuSelected = (menuSelected - 1 + MENU_ITEMS) % MENU_ITEMS;
                 moved = true;
-            } else if (hk == 0x37) {  // down
+            } else if (hk == 0x37) {
                 menuSelected = (menuSelected + 1) % MENU_ITEMS;
                 moved = true;
             }
@@ -187,20 +183,19 @@ void handleMenu() {
         disp.drawMenu(menuSelected);
     }
 
-    // Enter: select menu item
     if (ks.enter && !lastKs.enter) {
         disp.activity();
         switch (menuSelected) {
-            case 0:  // Search
+            case 0:
                 searchQuery[0] = '\0';
                 enterState(State::SEARCH_INPUT);
                 break;
-            case 1:  // Favorites
+            case 1:
                 favSelected = 0;
                 favScroll = 0;
                 enterState(State::FAVORITES);
                 break;
-            case 2:  // Settings
+            case 2:
                 enterState(State::SETTINGS);
                 break;
         }
@@ -214,33 +209,27 @@ void handleSearchInput() {
     auto& kbd = M5Cardputer.Keyboard;
     static auto lastKs = kbd.keysState();
     static std::vector<char> prevWord;
-    static unsigned long enterTime = 0;
-
     M5Cardputer.update();
     kbd.updateKeysState();
     auto& ks = kbd.keysState();
 
     unsigned long now = millis();
-
     bool enterNow = ks.enter && !lastKs.enter;
     bool delNow   = ks.del && !lastKs.del;
     bool tabNow   = ks.tab && !lastKs.tab;
     bool spaceNow = ks.space && !lastKs.space;
     bool newChar  = (ks.word.size() > prevWord.size()) && !ks.fn;
 
-    // Tab: back to menu
     if (tabNow) {
         enterState(State::MENU);
         return;
     }
 
-    // Enter: start search
     if (enterNow && strlen(searchQuery) > 0) {
         enterState(State::SEARCHING);
         return;
     }
 
-    // Delete
     if (delNow) {
         int len = strlen(searchQuery);
         if (len > 0) searchQuery[len - 1] = '\0';
@@ -248,14 +237,12 @@ void handleSearchInput() {
         stateChanged = true;
     }
 
-    // Space
     if (spaceNow) {
         int len = strlen(searchQuery);
         if (len < 31) { searchQuery[len] = ' '; searchQuery[len + 1] = '\0'; }
         stateChanged = true;
     }
 
-    // Text input
     if (newChar && ks.word.size() > 0) {
         char c = ks.word.back();
         int len = strlen(searchQuery);
@@ -266,7 +253,6 @@ void handleSearchInput() {
         stateChanged = true;
     }
 
-    // Redraw on change or for cursor blink
     if (stateChanged || (now % BLINK_INTERVAL < 20)) {
         disp.drawSearchInput(searchQuery, now);
         stateChanged = false;
@@ -285,19 +271,17 @@ void handleSearching() {
         resultScroll = 0;
     }
 
-    // Perform search (blocking but brief — Radio Browser is fast)
     int count = browser.search(searchQuery);
 
     if (count > 0) {
         enterState(State::SEARCH_RESULTS);
     } else {
-        // Show error briefly then go back
-        disp.dsp.fillScreen(TFT_BLACK);
+        disp.dsp->fillScreen(TFT_BLACK);
         disp.drawStatusBar();
-        disp.dsp.setTextColor(TFT_RED);
-        disp.dsp.drawString("No results", 4, 40);
-        disp.dsp.setTextColor(0x8410);
-        disp.dsp.drawString(browser.lastError, 4, 54);
+        disp.dsp->setTextColor(TFT_RED);
+        disp.dsp->drawString("No results", 4, 40);
+        disp.dsp->setTextColor(0x8410);
+        disp.dsp->drawString(browser.lastError, 4, 54);
         disp.drawHints("Tab:back");
         delay(1500);
         enterState(State::MENU);
@@ -317,24 +301,22 @@ void handleSearchResults() {
     bool enterNow = ks.enter && !lastKs.enter;
     bool tabNow   = ks.tab && !lastKs.tab;
 
-    // Tab: back
     if (tabNow) {
         enterState(State::MENU);
         return;
     }
 
-    // Navigation
     bool moved = false;
     if (ks.fn) {
         for (size_t i = lastHid; i < ks.hid_keys.size(); i++) {
             uint8_t hk = ks.hid_keys[i];
-            if (hk == 0x33) {  // up
+            if (hk == 0x33) {
                 if (resultSelected > 0) {
                     resultSelected--;
                     if (resultSelected < resultScroll) resultScroll = resultSelected;
                     moved = true;
                 }
-            } else if (hk == 0x37) {  // down
+            } else if (hk == 0x37) {
                 if (resultSelected < browser.resultCount - 1) {
                     resultSelected++;
                     if (resultSelected >= resultScroll + RESULTS_PER_PAGE) {
@@ -351,11 +333,10 @@ void handleSearchResults() {
         disp.drawStationList(browser.results, browser.resultCount,
                             resultSelected, resultScroll, "Results");
         stateChanged = false;
-        lastHid = ks.hid_keys.size();  // reset key tracking
+        lastHid = ks.hid_keys.size();
         disp.activity();
     }
 
-    // Enter: play selected station
     if (enterNow && browser.resultCount > 0) {
         Station& s = browser.results[resultSelected];
         player.play(s.url, s.name);
@@ -384,24 +365,22 @@ void handleFavorites() {
         return;
     }
 
-    // Delete favorite
     if (delNow && favMgr.count > 0 && favSelected < favMgr.count) {
         favMgr.remove(favSelected);
         if (favSelected >= favMgr.count && favMgr.count > 0) favSelected = favMgr.count - 1;
-        if (favSelected < favScroll) favScroll = max(0, favSelected);
+        if (favSelected < favScroll) favScroll = (favSelected > 0) ? favSelected : 0;
         stateChanged = true;
     }
 
-    // Navigation
     bool moved = false;
     if (ks.fn) {
         for (size_t i = lastHid; i < ks.hid_keys.size(); i++) {
             uint8_t hk = ks.hid_keys[i];
-            if (hk == 0x33 && favSelected > 0) {  // up
+            if (hk == 0x33 && favSelected > 0) {
                 favSelected--;
                 if (favSelected < favScroll) favScroll = favSelected;
                 moved = true;
-            } else if (hk == 0x37 && favSelected < favMgr.count - 1) {  // down
+            } else if (hk == 0x37 && favSelected < favMgr.count - 1) {
                 favSelected++;
                 if (favSelected >= favScroll + RESULTS_PER_PAGE) favScroll = favSelected - RESULTS_PER_PAGE + 1;
                 moved = true;
@@ -414,11 +393,10 @@ void handleFavorites() {
         disp.drawStationList(favMgr.favorites, favMgr.count,
                             favSelected, favScroll, "Favorites", true, &favMgr);
         stateChanged = false;
-        lastHid = ks.hid_keys.size();  // reset key tracking
+        lastHid = ks.hid_keys.size();
         disp.activity();
     }
 
-    // Enter: play
     if (enterNow && favMgr.count > 0) {
         Station& s = favMgr.favorites[favSelected];
         player.play(s.url, s.name);
@@ -444,17 +422,15 @@ void handlePlaying() {
     if (stateChanged) {
         disp.drawPlaying();
         stateChanged = false;
-        lastHid = ks.hid_keys.size();  // reset key tracking
+        lastHid = ks.hid_keys.size();
     }
 
-    // Tab: stop and go back
     if (tabNow) {
         player.stop();
         enterState(State::MENU);
         return;
     }
 
-    // Enter: add to favorites
     if (enterNow && player.isPlaying) {
         Station s;
         strncpy(s.name, player.stationName, sizeof(s.name) - 1);
@@ -465,30 +441,29 @@ void handlePlaying() {
         s.valid = true;
 
         if (favMgr.add(s)) {
-            disp.dsp.fillRect(4, 105, 200, 12, TFT_BLACK);
-            disp.dsp.setTextColor(TFT_GREEN);
-            disp.dsp.drawString("Added to favorites!", 4, 105);
+            disp.dsp->fillRect(4, 105, 200, 12, TFT_BLACK);
+            disp.dsp->setTextColor(TFT_GREEN);
+            disp.dsp->drawString("Added to favorites!", 4, 105);
             delay(1000);
             stateChanged = true;
         } else {
-            disp.dsp.fillRect(4, 105, 200, 12, TFT_BLACK);
-            disp.dsp.setTextColor(TFT_YELLOW);
-            disp.dsp.drawString("Already in favorites", 4, 105);
+            disp.dsp->fillRect(4, 105, 200, 12, TFT_BLACK);
+            disp.dsp->setTextColor(TFT_YELLOW);
+            disp.dsp->drawString("Already in favorites", 4, 105);
             delay(1000);
             stateChanged = true;
         }
     }
 
-    // Volume control: Fn+left/right
     if (ks.fn) {
         for (size_t i = lastHid; i < ks.hid_keys.size(); i++) {
             uint8_t hk = ks.hid_keys[i];
-            if (hk == 0x36) {  // left: vol down
+            if (hk == 0x36) {
                 player.volDown();
                 M5Cardputer.Speaker.setVolume(map(player.volume, VOLUME_MIN, VOLUME_MAX, 0, 255));
                 M5Cardputer.Speaker.tone(440, 40);
                 stateChanged = true;
-            } else if (hk == 0x38) {  // right: vol up
+            } else if (hk == 0x38) {
                 player.volUp();
                 M5Cardputer.Speaker.setVolume(map(player.volume, VOLUME_MIN, VOLUME_MAX, 0, 255));
                 M5Cardputer.Speaker.tone(880, 40);
@@ -498,7 +473,6 @@ void handlePlaying() {
         lastHid = ks.hid_keys.size();
     }
 
-    // Redraw periodically for stream title updates
     static unsigned long lastRedraw = 0;
     if (millis() - lastRedraw > 3000) {
         stateChanged = true;
@@ -515,7 +489,6 @@ void handleSettings() {
     M5Cardputer.Speaker.setVolume(map(wifiCfg.volume, VOLUME_MIN, VOLUME_MAX, 0, 255));
 
     if (confChanged) {
-        // WiFi changed — reconnect
         WiFi.disconnect();
         delay(500);
         connectWiFi();
@@ -525,10 +498,8 @@ void handleSettings() {
 
 // ── Main Loop ───────────────────────────────────────────────
 void loop() {
-    // Always run audio decoder loop
     player.loop();
 
-    // Dispatch state handlers
     switch (state) {
         case State::MENU:            handleMenu();           break;
         case State::SEARCH_INPUT:    handleSearchInput();    break;
@@ -537,14 +508,6 @@ void loop() {
         case State::FAVORITES:       handleFavorites();      break;
         case State::PLAYING:         handlePlaying();        break;
         case State::SETTINGS:        handleSettings();       break;
-    }
-
-    // Screen saver: dim after idle
-    static unsigned long lastActive = millis();
-    if (state != State::PLAYING) {
-        if (millis() - disp.lastActivity > SCREEN_SAVER_MS) {
-            // Don't actually dim yet — just a placeholder
-        }
     }
 
     delay(10);

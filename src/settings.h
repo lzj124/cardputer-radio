@@ -335,9 +335,11 @@ static bool passwordInputDialog(const char* ssid, char* password, int maxLen) {
     }
 }
 
-// ── Try connecting and show progress ────────────────────────
+// ── Try connecting with cancel support ─────────────────────
+// Returns: true=connected, false=failed or cancelled
 static bool tryConnect(const char* ssid, const char* pass) {
     auto& d = M5Cardputer.Display;
+    auto& kbd = M5Cardputer.Keyboard;
     int w = d.width();
     int h = d.height();
 
@@ -345,21 +347,37 @@ static bool tryConnect(const char* ssid, const char* pass) {
     d.setTextSize(1);
     d.setTextColor(TFT_WHITE);
     d.drawString("Connecting...", 4, 30);
-
     d.setTextColor(0x8410);
     char line[28];
     snprintf(line, sizeof(line), "SSID: %s", ssid);
     d.drawString(line, 4, 46);
+    d.setTextColor(0x8410);
+    d.drawString("Tab:cancel", 4, h - 8);
 
     WiFi.disconnect();
     delay(200);
     WiFi.begin(ssid, pass);
 
-    int attempt = 0;
     unsigned long t0 = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) {
-        delay(300);
-        attempt++;
+    static constexpr unsigned long CONNECT_TIMEOUT = 10000;  // 10s
+
+    while (WiFi.status() != WL_CONNECTED && millis() - t0 < CONNECT_TIMEOUT) {
+        M5Cardputer.update();
+        kbd.updateKeysState();
+        auto& ks = kbd.keysState();
+
+        // Tab cancels
+        if (ks.tab) {
+            WiFi.disconnect();
+            d.fillScreen(TFT_BLACK);
+            d.setTextColor(TFT_YELLOW);
+            d.drawString("Cancelled", 4, 40);
+            delay(800);
+            return false;
+        }
+
+        // Animated dots
+        int attempt = (millis() - t0) / 300;
         char dots[4];
         int n = (attempt % 4);
         for (int i = 0; i < n; i++) dots[i] = '.';
@@ -367,6 +385,8 @@ static bool tryConnect(const char* ssid, const char* pass) {
         d.fillRect(4, 62, w, 10, TFT_BLACK);
         d.setTextColor(TFT_CYAN);
         d.drawString(dots, 4, 62);
+
+        delay(50);
     }
 
     if (WiFi.status() == WL_CONNECTED) {
@@ -380,7 +400,7 @@ static bool tryConnect(const char* ssid, const char* pass) {
     } else {
         d.fillScreen(TFT_BLACK);
         d.setTextColor(TFT_RED);
-        d.drawString("Connect failed!", 4, 40);
+        d.drawString("Connect timeout!", 4, 40);
         delay(1500);
         return false;
     }

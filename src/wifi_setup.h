@@ -279,6 +279,8 @@ static void connectWiFiEx(WifiConfig& cfg) {
 
         if (WiFi.status() == WL_CONNECTED) {
             wifiConnected = true;
+            // Force reliable DNS (114DNS) for streaming host resolution
+            forceReliableDns();
             nvsSave(cfg.ssid, cfg.pass);  // Save successful creds
             d.fillScreen(TFT_BLACK);
             d.setTextColor(TFT_GREEN);
@@ -322,6 +324,8 @@ static void connectWiFiEx(WifiConfig& cfg) {
 
     if (WiFi.status() == WL_CONNECTED) {
         wifiConnected = true;
+        // Force reliable DNS (114DNS)
+        forceReliableDns();
         d.fillScreen(TFT_BLACK);
         d.setTextColor(TFT_GREEN);
         d.drawString("Connected!", 4, 20);

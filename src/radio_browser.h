@@ -56,43 +56,67 @@ public:
         client.printf("User-Agent: CardputerRadio/1.0\r\n");
         client.printf("Connection: close\r\n\r\n");
 
-        // Read response — accumulate into buffer
-        char buf[8192];
-        int  bufLen = 0;
+        // Read response — accumulate into buffer (heap, not stack)
+        char* buf = (char*)malloc(16384);
+        if (!buf) {
+            strncpy(lastError, "OOM", sizeof(lastError) - 1);
+            client.stop();
+            return 0;
+        }
+        int  bufLen   = 0;
+        int  bodyLen   = -1;  // -1 = unknown, will be set from Content-Length
         unsigned long t0 = millis();
 
-        // Skip headers
+        // ── Read headers (line by line, extract Content-Length) ──
+        char headerLine[128];
+        int  hl = 0;
         bool headersDone = false;
-        int  newlineCount = 0;
-        char prev = 0;
 
-        while (millis() - t0 < HTTP_TIMEOUT) {
-            if (!client.connected() && !client.available()) break;
-
+        while (millis() - t0 < HTTP_TIMEOUT && !headersDone) {
             while (client.available()) {
                 char c = client.read();
-                if (!headersDone) {
-                    if (c == '\n') {
-                        newlineCount++;
-                        if (newlineCount == 2 || (prev == '\r' && c == '\n' && newlineCount >= 2)) {
-                            headersDone = true;
-                        }
-                    } else if (c != '\r') {
-                        newlineCount = 0;
+                if (c == '\n') {
+                    headerLine[hl] = '\0';
+                    // Check for Content-Length
+                    if (strncasecmp(headerLine, "Content-Length:", 15) == 0) {
+                        bodyLen = atoi(headerLine + 15);
                     }
-                    prev = c;
-                } else {
-                    if (bufLen < (int)sizeof(buf) - 1) {
-                        buf[bufLen++] = c;
+                    if (hl == 0 || (hl == 1 && headerLine[0] == '\r')) {
+                        headersDone = true;  // blank line = end of headers
                     }
+                    hl = 0;
+                    if (headersDone) break;
+                } else if (c != '\r' && hl < (int)sizeof(headerLine) - 1) {
+                    headerLine[hl++] = c;
                 }
             }
-            if (headersDone && !client.available() && !client.connected()) break;
+            if (!headersDone && !client.available()) delay(10);
+        }
+
+        if (!headersDone) {
+            strncpy(lastError, "Header timeout", sizeof(lastError) - 1);
+            client.stop();
+            free(buf);
+            return 0;
+        }
+
+        // ── Read body: exactly bodyLen bytes if known, else until connection closes ──
+        t0 = millis();
+        int target = (bodyLen > 0 && bodyLen < 16384) ? bodyLen : 16383;
+
+        while (bufLen < target && millis() - t0 < HTTP_TIMEOUT) {
+            while (client.available() && bufLen < target) {
+                buf[bufLen++] = client.read();
+            }
+            if (bufLen >= target) break;
+            // Wait for more data — don't break early on !connected()
+            delay(10);
         }
         client.stop();
 
         if (bufLen == 0) {
             strncpy(lastError, "Empty response", sizeof(lastError) - 1);
+            free(buf);
             return 0;
         }
         buf[bufLen] = '\0';
@@ -103,6 +127,7 @@ public:
         if (err) {
             snprintf(lastError, sizeof(lastError), "JSON: %s", err.c_str());
             Serial.printf("[RB] JSON error: %s\n", err.c_str());
+            free(buf);
             return 0;
         }
 
@@ -145,6 +170,7 @@ public:
 
         resultCount = count;
         Serial.printf("[RB] Found %d stations for \"%s\"\n", count, query);
+        free(buf);
         return count;
     }
 

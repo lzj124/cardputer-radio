@@ -20,10 +20,10 @@ enum class State {
     SETTINGS,        // WiFi + volume config
 };
 
-// ── I2S Pins (StampS3 Cardputer — MAX98357 DAC) ────────────
+// ── I2S Pins (matching M5WebRadio's proven mapping) ──────────
 static constexpr int I2S_BCLK = 41;
-static constexpr int I2S_LRC  = 42;
-static constexpr int I2S_DOUT = 43;
+static constexpr int I2S_LRC  = 43;  // WS = GPIO 43 (not 42!)
+static constexpr int I2S_DOUT = 42;  // Data = GPIO 42 (not 43!)
 
 // ── SD Card ─────────────────────────────────────────────────
 static constexpr int SD_SPI_SCK  = 40;
@@ -36,8 +36,8 @@ static constexpr const char* WIFI_CFG_FILE   = "/wifi.cfg";
 // ── Radio Browser API ──────────────────────────────────────
 static constexpr const char* RB_HOST = "de1.api.radio-browser.info";
 static constexpr int   RB_HTTPS_PORT = 443;
-static constexpr int   RB_SEARCH_LIMIT = 20;
-static constexpr int   MAX_RESULTS    = 20;
+static constexpr int   RB_SEARCH_LIMIT = 10;
+static constexpr int   MAX_RESULTS    = 10;
 static constexpr int   MAX_FAVORITES  = 50;
 
 // ── Display ─────────────────────────────────────────────────

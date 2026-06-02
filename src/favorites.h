@@ -34,7 +34,12 @@ public:
             return false;
         }
 
-        char buf[8192];
+        char* buf = (char*)malloc(size + 1);
+        if (!buf) {
+            Serial.println("[Fav] OOM loading favorites");
+            f.close();
+            return false;
+        }
         size_t read = f.readBytes(buf, size);
         f.close();
         buf[read] = '\0';
@@ -43,6 +48,7 @@ public:
         DeserializationError err = deserializeJson(doc, buf, read);
         if (err) {
             Serial.printf("[Fav] JSON parse error: %s\n", err.c_str());
+            free(buf);
             return false;
         }
 
@@ -82,6 +88,7 @@ public:
         }
 
         Serial.printf("[Fav] Loaded %d favorites\n", count);
+        free(buf);
         return true;
     }
 

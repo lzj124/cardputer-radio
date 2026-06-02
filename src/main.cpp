@@ -1,5 +1,6 @@
 // Cardputer Radio - Internet Radio Streamer for M5Stack Cardputer
 // Entry point + state machine
+// Dual-core: audio decoding on Core 1, UI + WiFi on Core 0
 
 #include <Arduino.h>
 #include <M5Cardputer.h>
@@ -7,6 +8,7 @@
 #include <SD.h>
 #include <SPI.h>
 #include <vector>
+#include <Preferences.h>
 
 // Project headers
 #include "config.h"
@@ -15,6 +17,7 @@
 #include "favorites.h"
 #include "display.h"
 #include "settings.h"
+#include "wifi_setup.h"
 
 // ── Global objects ──────────────────────────────────────────
 RadioPlayer       player;
@@ -37,53 +40,24 @@ bool  sdAvailable      = false;
 bool  wifiConnected    = false;
 unsigned long stateEnterMs = 0;
 
+// Mutex for player state (accessed by both cores)
+portMUX_TYPE playerMux = portMUX_INITIALIZER_UNLOCKED;
+
 // ── Forward declarations ────────────────────────────────────
 void enterState(State s);
 
-// ── WiFi Connection (indefinite retry) ──────────────────────
+// ── Audio task (Core 1) — dedicated CPU for decoding ────────
+void audioTask(void* param) {
+    while (1) {
+        // No mutex needed — loop() only reads state, WiFi needs interrupts alive
+        player.loop();
+        vTaskDelay(1);
+    }
+}
+
+// ── WiFi Connection ──────────────────────────────────────────
 void connectWiFi() {
-    if (strlen(wifiCfg.ssid) == 0) {
-        Serial.println("[WiFi] No SSID configured, skipping");
-        return;
-    }
-
-    disp.dsp->fillScreen(TFT_BLACK);
-    disp.dsp->setTextSize(1);
-    disp.dsp->setTextColor(TFT_WHITE);
-    disp.dsp->drawString("Connecting WiFi...", 4, 20);
-    disp.dsp->setTextColor(0x8410);
-    disp.dsp->drawString(wifiCfg.ssid, 4, 34);
-
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(wifiCfg.ssid, wifiCfg.pass);
-
-    int attempt = 0;
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        attempt++;
-        char dots[4];
-        int n = (attempt % 4);
-        for (int i = 0; i < n; i++) dots[i] = '.';
-        dots[n] = '\0';
-        disp.dsp->fillRect(4, 48, 200, 10, TFT_BLACK);
-        disp.dsp->setTextColor(TFT_CYAN);
-        disp.dsp->drawString(dots, 4, 48);
-
-        if (attempt % 10 == 0) {
-            disp.dsp->fillRect(4, 60, disp.w, 10, TFT_BLACK);
-            disp.dsp->setTextColor(TFT_RED);
-            disp.dsp->drawString("Retrying...", 4, 60);
-        }
-    }
-
-    wifiConnected = true;
-    disp.dsp->fillScreen(TFT_BLACK);
-    disp.dsp->setTextColor(TFT_GREEN);
-    disp.dsp->drawString("Connected!", 4, 40);
-    disp.dsp->setTextColor(TFT_WHITE);
-    disp.dsp->drawString(WiFi.localIP().toString().c_str(), 4, 54);
-    delay(800);
-    Serial.printf("[WiFi] Connected: %s\n", WiFi.localIP().toString().c_str());
+    connectWiFiEx(wifiCfg);
 }
 
 // ── Setup ───────────────────────────────────────────────────
@@ -94,8 +68,13 @@ void setup() {
     Serial.flush();
     delay(100);
 
+    // ── Configure speaker BEFORE begin() (matching M5WebRadio) ──
     auto cfg = M5.config();
-    M5Cardputer.begin(cfg);
+    auto spk_cfg = M5Cardputer.Speaker.config();
+    spk_cfg.sample_rate = 128000;        // Match WebRadio
+    spk_cfg.task_pinned_core = APP_CPU_NUM;
+    M5Cardputer.Speaker.config(spk_cfg);
+    M5Cardputer.begin(cfg, true);
 
     disp.begin();
     disp.dsp->setTextSize(1);
@@ -123,8 +102,7 @@ void setup() {
         favMgr.load();
     }
 
-    // Set initial volume
-    M5Cardputer.Speaker.setVolume(map(wifiCfg.volume, VOLUME_MIN, VOLUME_MAX, 0, 255));
+    // Set initial volume (audio only — M5WebRadio doesn't use Speaker.setVolume)
     player.setVol(wifiCfg.volume);
 
     // Init audio player
@@ -132,6 +110,10 @@ void setup() {
 
     // Connect WiFi
     connectWiFi();
+
+    // Start audio task on Core 1 (dedicated CPU for decoding)
+    xTaskCreatePinnedToCore(
+        audioTask, "audio", 16384, NULL, 3, NULL, 1);
 
     enterState(State::MENU);
 }
@@ -338,8 +320,10 @@ void handleSearchResults() {
     }
 
     if (enterNow && browser.resultCount > 0) {
-        Station& s = browser.results[resultSelected];
-        player.play(s.url, s.name);
+        portENTER_CRITICAL(&playerMux);
+        player.play(browser.results[resultSelected].url,
+                    browser.results[resultSelected].name);
+        portEXIT_CRITICAL(&playerMux);
         enterState(State::PLAYING);
     }
 
@@ -398,8 +382,10 @@ void handleFavorites() {
     }
 
     if (enterNow && favMgr.count > 0) {
-        Station& s = favMgr.favorites[favSelected];
-        player.play(s.url, s.name);
+        portENTER_CRITICAL(&playerMux);
+        player.play(favMgr.favorites[favSelected].url,
+                    favMgr.favorites[favSelected].name);
+        portEXIT_CRITICAL(&playerMux);
         enterState(State::PLAYING);
     }
 
@@ -426,7 +412,9 @@ void handlePlaying() {
     }
 
     if (tabNow) {
+        portENTER_CRITICAL(&playerMux);
         player.stop();
+        portEXIT_CRITICAL(&playerMux);
         enterState(State::MENU);
         return;
     }
@@ -459,14 +447,14 @@ void handlePlaying() {
         for (size_t i = lastHid; i < ks.hid_keys.size(); i++) {
             uint8_t hk = ks.hid_keys[i];
             if (hk == 0x36) {
+                portENTER_CRITICAL(&playerMux);
                 player.volDown();
-                M5Cardputer.Speaker.setVolume(map(player.volume, VOLUME_MIN, VOLUME_MAX, 0, 255));
-                M5Cardputer.Speaker.tone(440, 40);
+                portEXIT_CRITICAL(&playerMux);
                 stateChanged = true;
             } else if (hk == 0x38) {
+                portENTER_CRITICAL(&playerMux);
                 player.volUp();
-                M5Cardputer.Speaker.setVolume(map(player.volume, VOLUME_MIN, VOLUME_MAX, 0, 255));
-                M5Cardputer.Speaker.tone(880, 40);
+                portEXIT_CRITICAL(&playerMux);
                 stateChanged = true;
             }
         }
@@ -485,8 +473,9 @@ void handlePlaying() {
 // ── Handle SETTINGS state ───────────────────────────────────
 void handleSettings() {
     bool confChanged = runSettingsPage(wifiCfg);
+    portENTER_CRITICAL(&playerMux);
     player.setVol(wifiCfg.volume);
-    M5Cardputer.Speaker.setVolume(map(wifiCfg.volume, VOLUME_MIN, VOLUME_MAX, 0, 255));
+    portEXIT_CRITICAL(&playerMux);
 
     if (confChanged) {
         WiFi.disconnect();
@@ -496,10 +485,8 @@ void handleSettings() {
     enterState(State::MENU);
 }
 
-// ── Main Loop ───────────────────────────────────────────────
+// ── Main Loop (Core 0: WiFi + UI only) ──────────────────────
 void loop() {
-    player.loop();
-
     switch (state) {
         case State::MENU:            handleMenu();           break;
         case State::SEARCH_INPUT:    handleSearchInput();    break;
@@ -509,6 +496,5 @@ void loop() {
         case State::PLAYING:         handlePlaying();        break;
         case State::SETTINGS:        handleSettings();       break;
     }
-
-    delay(10);
+    delay(5);
 }

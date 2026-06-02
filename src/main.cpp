@@ -474,14 +474,9 @@ void handlePlaying() {
 void handleSettings() {
     bool confChanged = runSettingsPage(wifiCfg);
     portENTER_CRITICAL(&playerMux);
+    // WiFi already connected by tryConnect() — just persist volume
     player.setVol(wifiCfg.volume);
-    portEXIT_CRITICAL(&playerMux);
-
-    if (confChanged) {
-        WiFi.disconnect();
-        delay(500);
-        connectWiFi();
-    }
+    M5Cardputer.Speaker.setVolume(map(wifiCfg.volume, VOLUME_MIN, VOLUME_MAX, 0, 255));
     enterState(State::MENU);
 }
 

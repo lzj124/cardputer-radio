@@ -29,8 +29,8 @@ static bool fftSimON = true;
 
 // ── I2S Pins ────────────────────────────────────────────────
 #define I2S_BCK  41
-#define I2S_WS   43
-#define I2S_DOUT 42
+#define I2S_WS   42
+#define I2S_DOUT 43
 
 // ── Audio ───────────────────────────────────────────────────
 Audio audio;
@@ -260,6 +260,11 @@ void stationDown() {
 }
 
 void Playfile() {
+  if (WiFi.status() != WL_CONNECTED) {
+    M5Cardputer.Display.fillRect(0, 15, 240, 35, TFT_BLACK);
+    M5Cardputer.Display.drawString("WiFi not connected!", 0, 15);
+    return;
+  }
   led.setPixelColor(0, led.Color(255, 0, 0)); led.show();
   audio.stopSong();
   String url = String(stations[curStation].url);
@@ -698,6 +703,7 @@ void setup() {
 
   connectToWiFi();
 
+  M5Cardputer.Speaker.end();   // Release I2S so ESP32-audioI2S can take over
   audio.setPinout(I2S_BCK, I2S_WS, I2S_DOUT);
   audio.setVolume(map(curVolume, 0, 255, 0, 21));
   audio.setBalance(0);

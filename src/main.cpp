@@ -4,12 +4,11 @@
  * Extended with: Radio Browser API search + favorites
  *
  * Original: https://github.com/cyberwisk/M5Cardputer_WebRadio
- * Dependencies: M5Cardputer, ESP32-audioI2S, ArduinoJson, Adafruit_NeoPixel
+ * Dependencies: M5Cardputer, ESP32-audioI2S, ArduinoJson
  */
 
 #include "M5Cardputer.h"
 #include <Audio.h>
-#include <Adafruit_NeoPixel.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
@@ -34,7 +33,6 @@ static bool fftSimON = true;
 
 // ── Audio ───────────────────────────────────────────────────
 Audio audio;
-Adafruit_NeoPixel led(1, 21, NEO_GRB + NEO_KHZ800);
 
 // ── Station limits ──────────────────────────────────────────
 #define MAX_STATIONS   50
@@ -265,7 +263,6 @@ void Playfile() {
     M5Cardputer.Display.drawString("WiFi not connected!", 0, 15);
     return;
   }
-  led.setPixelColor(0, led.Color(255, 0, 0)); led.show();
   audio.stopSong();
   String url = String(stations[curStation].url);
   if (url.indexOf("http") != -1) audio.connecttohost(stations[curStation].url);
@@ -316,7 +313,6 @@ void loadStationsFromSD() {
   }
   f.close();
   if (numStations == 0) loadDefaultStations();
-  led.setPixelColor(0, led.Color(0, 0, 0)); led.show();
 }
 
 // ============================================================
@@ -697,7 +693,6 @@ void setup() {
   M5Cardputer.Speaker.config(spk_cfg);
   M5Cardputer.begin(cfg, true);
 
-  led.begin(); led.setBrightness(255); led.show();
   M5Cardputer.Display.setRotation(1);
   M5Cardputer.Display.setFont(&fonts::FreeMonoOblique9pt7b);
 
@@ -846,5 +841,4 @@ void loop() {
   else if (state == FAVORITES) handleFavorites();
 
   delay(1);
-  led.setPixelColor(0, led.Color(0, 0, 0)); led.show();
 }

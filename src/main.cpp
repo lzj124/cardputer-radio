@@ -693,13 +693,16 @@ void setup() {
   M5Cardputer.Speaker.config(spk_cfg);
   M5Cardputer.begin(cfg, true);
 
-  Serial.println("[setup] M5 begun");
+  M5Cardputer.Display.fillScreen(TFT_BLACK);
   M5Cardputer.Display.setRotation(1);
   M5Cardputer.Display.setFont(&fonts::FreeMonoOblique9pt7b);
+  M5Cardputer.Display.setTextColor(TFT_WHITE);
+  M5Cardputer.Display.drawString("RadioPlus boot", 2, 2);
+  delay(500);
 
-  Serial.println("[setup] connecting WiFi...");
+  M5Cardputer.Display.drawString("WiFi...", 2, 18);
   connectToWiFi();
-  Serial.println("[setup] WiFi done");
+  M5Cardputer.Display.drawString("WiFi OK", 2, 18);
 
   audio.setPinout(I2S_BCK, I2S_WS, I2S_DOUT);
   audio.setVolume(map(curVolume, 0, 255, 0, 21));

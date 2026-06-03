@@ -693,23 +693,33 @@ void setup() {
   M5Cardputer.Speaker.config(spk_cfg);
   M5Cardputer.begin(cfg, true);
 
+  Serial.println("[setup] M5 begun");
   M5Cardputer.Display.setRotation(1);
   M5Cardputer.Display.setFont(&fonts::FreeMonoOblique9pt7b);
 
+  Serial.println("[setup] connecting WiFi...");
   connectToWiFi();
+  Serial.println("[setup] WiFi done");
 
   audio.setPinout(I2S_BCK, I2S_WS, I2S_DOUT);
   audio.setVolume(map(curVolume, 0, 255, 0, 21));
   audio.setBalance(0);
 
   M5Cardputer.Display.fillScreen(BLACK);
+  Serial.println("[setup] loading stations...");
   loadStationsFromSD();
+  Serial.printf("[setup] %d stations loaded\n", numStations);
   loadFavorites();
+  Serial.printf("[setup] %d favorites loaded\n", favCount);
 
   curStation = 0;
-  if (numStations > 0) Playfile();
+  if (numStations > 0) {
+    Serial.println("[setup] starting playback...");
+    Playfile();
+  }
   toggleFFT();
   enterState(PLAYING);
+  Serial.println("[setup] done, entering loop");
 }
 
 // ============================================================

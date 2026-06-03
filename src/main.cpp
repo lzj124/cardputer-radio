@@ -126,8 +126,8 @@ void setup() {
 
   M5Cardputer.Display.drawString("STEP2: WiFi...",2,18);
   connectWiFi();
-  M5Cardputer.Display.drawString("STEP2: WiFi DONE",2,18);delay(500);
-
+  M5Cardputer.Display.drawString("STEP2: WiFi DONE",2,18);
+  delay(1500);  // Let DNS stabilize
   audio.setPinout(I2S_BCK,I2S_WS,I2S_DOUT);audio.setVolume(map(curVolume,0,255,0,21));
   M5Cardputer.Display.drawString("STEP3: Load SD...",2,34);delay(300);
   loadSD();

@@ -29,8 +29,8 @@ static bool fftSimON = true;
 
 // ── I2S Pins ────────────────────────────────────────────────
 #define I2S_BCK  41
-#define I2S_WS   42
-#define I2S_DOUT 43
+#define I2S_WS   43
+#define I2S_DOUT 42
 
 // ── Audio ───────────────────────────────────────────────────
 Audio audio;
@@ -703,7 +703,6 @@ void setup() {
 
   connectToWiFi();
 
-  M5Cardputer.Speaker.end();   // Release I2S so ESP32-audioI2S can take over
   audio.setPinout(I2S_BCK, I2S_WS, I2S_DOUT);
   audio.setVolume(map(curVolume, 0, 255, 0, 21));
   audio.setBalance(0);

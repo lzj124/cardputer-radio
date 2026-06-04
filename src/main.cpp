@@ -45,6 +45,7 @@ void showStation() {
   showVolume();
 }
 void Playfile() {
+  if(WiFi.status()!=WL_CONNECTED){M5Cardputer.Display.drawString("No WiFi!",2,78);return;}
   audio.stopSong();
   audio.connecttohost(stations[curStation].url);
   showStation();
@@ -108,7 +109,17 @@ void connectWiFi(){
     while(millis()-t<15000){if(WiFi.status()==WL_CONNECTED)return;delay(50);}
     M5Cardputer.Display.drawString("WiFi fail, rescan",1,80);delay(1000);}
   M5Cardputer.Display.clear();M5Cardputer.Display.drawString("WiFi Setup",1,1);
-  CFG_SSID=scanNet();if(CFG_SSID.isEmpty())return;
+  CFG_SSID=scanNet();
+  if(CFG_SSID.isEmpty()){
+    M5Cardputer.Display.drawString("No networks, retry...",1,80);
+    delay(1500);
+    CFG_SSID=scanNet();
+  }
+  if(CFG_SSID.isEmpty()){
+    M5Cardputer.Display.drawString("Still none, reboot!",1,80);
+    delay(2000);
+    ESP.restart();
+  }
   M5Cardputer.Display.clear();M5Cardputer.Display.drawString("SSID:"+CFG_SSID,1,20);M5Cardputer.Display.drawString("Pass:",1,38);
   CFG_PASS=inputT(">",4,M5Cardputer.Display.height()-24);
   pref.begin(NVS_NS,false);pref.putString(NVS_SSID,CFG_SSID);pref.putString(NVS_PASS,CFG_PASS);pref.putUInt("sh",hh(CFG_SSID));pref.putUInt("ph",hh(CFG_PASS));pref.end();
